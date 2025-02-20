@@ -20,13 +20,13 @@ import {
 } from "@mui/material";
 
 import DeleteIcon from "@mui/icons-material/Delete";
-import styles from "../styles/Home.module.css"; // Import the CSS file
+import styles from "../styles/Home.module.css";
 import { X, Share2 } from "lucide-react";
 import clsx from "clsx";
 
 const EditGrid = ({ receiptId, getReceiptData }) => {
   const renderPersonCell = (params) => {
-    const isOptedIn = !!params.value; // Check if value exists
+    const isOptedIn = !!params.value;
     return <div>{isOptedIn ? `$${Number(params.value).toFixed(2)}` : ""}</div>;
   };
 
@@ -53,67 +53,6 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
   const router = useRouter();
   const isSharedPage = router.pathname.includes("/receipt/shared/");
   const url = process.env.NEXT_PUBLIC_API_BASE;
-
-  const getNew = (id, field) => {
-    // 🔄 Compute the new state first
-    const ans = (() => {
-      // Exclude the totals row from processing
-      let dataRows = rows.filter((row) => row.id !== "totals");
-
-      // Update the target row
-      const updatedRows = dataRows.map((row) => {
-        if (row.id === id) {
-          const updatedRow = {
-            ...row,
-            [field]: !row[field], // Toggle cell value
-          };
-
-          // 🧠 Calculate participant count
-          const participants = columns.filter(
-            (col) =>
-              !["item", "price", "actions"].includes(col.field) &&
-              (col.field === field ? !row[field] : !!row[col.field]),
-          ).length;
-
-          // 💡 Calculate split amount
-          const splitAmount =
-            participants > 0 ? (row.price / participants).toFixed(2) : 0;
-
-          // Update all participant fields with the new split amount
-          columns.forEach((col) => {
-            if (!["item", "price", "actions"].includes(col.field)) {
-              const isParticipating =
-                col.field === field ? !row[field] : !!row[col.field];
-              updatedRow[col.field] = isParticipating ? splitAmount : false;
-            }
-          });
-
-          return updatedRow;
-        }
-        return row;
-      });
-
-      // 📊 Recalculate Totals Row
-      const totals = {};
-      columns.forEach((col) => {
-        if (!["item", "actions"].includes(col.field)) {
-          totals[col.field] = updatedRows.reduce((sum, row) => {
-            return sum + (parseFloat(row[col.field]) || 0);
-          }, 0);
-        }
-      });
-
-      const totalsRow = {
-        id: "totals",
-        item: "TOTAL",
-        ...totals,
-      };
-
-      return [...updatedRows, totalsRow]; // ✅ Return the computed state
-    })();
-
-    return ans;
-  };
 
   const updateReceipt = (id, field) => {
     setRows((prevRows) => {
@@ -217,16 +156,16 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
           editable: false,
           valueFormatter: (value) => {
             if (value === null || value === undefined || isNaN(value)) {
-              return ""; // Return blank if the value is invalid
+              return "";
             }
-            return `$${Number(value).toFixed(2)}`; // Format the value if valid
+            return `$${Number(value).toFixed(2)}`;
           },
           width: 70,
         },
       ];
 
       const dynamicColumns = fetchedColumns.map(({ id, username }) => ({
-        field: String(id), // Ensure it's a string for DataGrid compatibility
+        field: String(id),
         headerName: username,
         width: 105,
         renderCell: renderPersonCell,
@@ -239,7 +178,7 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
       setColumns([...staticColumns, ...dynamicColumns]);
     }
 
-    fetchData(); // Call the inner async function
+    fetchData();
   }, [receiptId, getReceiptData]);
 
   const handleClose = (event, reason) => {
