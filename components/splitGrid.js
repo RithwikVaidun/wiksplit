@@ -15,260 +15,30 @@ import { useAuth } from "../context/AuthContext";
 
 const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
   const { user } = useAuth();
+
   const renderPersonCell = (params) => {
     const isOptedIn = !!params.value;
     return <div>{isOptedIn ? `$${Number(params.value).toFixed(2)}` : ""}</div>;
   };
 
+  const [firstColumnWidth, setFirstColumnWidth] = useState(100);
+
   async function test() {
     for (let i = 0; i < rows.length; i++) {
-      console.log(rows[i]);
-      // console.log(rows[i].id, rows[i].item, rows[i].price);
+      // console.log(rows[i]);
+      console.log("id, item, price");
+      console.log(rows[i].id, rows[i].item, rows[i].price);
     }
 
     for (let i = 0; i < columns.length - 1; i++) {
       // console.log(columns[i].field, columns[i].headerName);
-      console.log(columns[i]);
+      // console.log(columns[i]);
     }
     // console.log("rows", rows);
     // console.log("columns", columns);
   }
 
-  const [rows, setRows] = useState([]);
-  const [columns, setColumns] = useState([]);
-  const [errorMessage, setErrorMessage] = useState("");
-  const gridRef = useRef(null);
-  const [firstColumnWidth, setFirstColumnWidth] = useState(100);
-
-  const createReceipt = async () => {
-    const validRows = rows
-      .filter((row) => row.id !== -1 && row.id !== "totals")
-      .map(({ id, ...rest }) => rest);
-
-    const validColumns = columns
-      .filter(
-        (col) =>
-          col.field !== "placeholder" &&
-          col.field !== "item" &&
-          col.field !== "price" &&
-          col.field !== "actions",
-      )
-      .map((field) => field.headerName);
-
-    // console.log("sending these rows to backend", validRows);
-    // console.log("sending these cols to backend", validColumns);
-
-    try {
-      const res = await apiClient.post("/createRec", {
-        rows: validRows,
-        columns: validColumns,
-        creator_id: user.id,
-      });
-
-      setRID(res.data.id);
-    } catch (error) {
-      console.error("Error creating receipt:", error);
-    }
-    // resetGrid();
-  };
-
-  const isButtonDisabled = useMemo(() => {
-    if (!user) {
-      setErrorMessage("Please login to create receipt");
-      return true;
-    }
-    let r = rows.filter((row) => row.id !== -1 && row.id !== "totals");
-    if (r.length === 0) {
-      setErrorMessage("Add at least 1 item");
-      return true;
-    }
-
-    for (let i = 0; i < r.length; i++) {
-      if (!r[i].item || r[i].item.trim() === "") {
-        setErrorMessage("Item name cannot be empty");
-        return true;
-      }
-      if (r[i].price === null || r[i].price < 0.01 || isNaN(r[i].price)) {
-        setErrorMessage(`${rows[i].item} price is invalid`);
-        return true;
-      }
-    }
-
-    const dups = (array) => {
-      const seen = new Set();
-      for (const obj of array) {
-        if (seen.has(obj.field)) {
-          return obj.field;
-        }
-        seen.add(obj.field);
-      }
-      return null;
-    };
-
-    let cols = columns.filter(
-      (col) =>
-        col.field !== "placeholder" &&
-        col.field !== "actions" &&
-        col.field !== "item" &&
-        col.field !== "price",
-    );
-
-    const duplicateField = dups(cols);
-    if (duplicateField) {
-      setErrorMessage(`Name "${duplicateField}" is already used`);
-      return true;
-    }
-    if (cols.length < 2) {
-      setErrorMessage("Add at least 2 users");
-      return true;
-    }
-
-    for (let i = 0; i < cols.length; i++) {
-      const field = cols[i].headerName;
-      if (
-        typeof field !== "string" ||
-        !field ||
-        field.trim() === "" ||
-        !/^[A-Za-z]+$/.test(field)
-      ) {
-        setErrorMessage(`Columns ${field} empty or invalid`);
-        return true;
-      }
-    }
-
-    setErrorMessage("");
-    return false;
-  }, [rows, columns]);
-
-  // columns
-  useEffect(() => {
-    const actionsColumn = {
-      field: "actions",
-      type: "actions",
-      headerName: "",
-      width: 20,
-      sortable: false,
-      disableColumnMenu: true,
-      getActions: (params) => {
-        if (params.id === -1 || params.id === "totals") {
-          return [];
-        }
-
-        return [
-          <GridActionsCellItem
-            icon={<DeleteIcon />}
-            label="Delete"
-            onClick={() => removeRow(params.id)}
-            color="error"
-          />,
-        ];
-      },
-    };
-    const staticColumns = [
-      {
-        field: "item",
-        pinned: "left",
-        width: firstColumnWidth,
-        headerName: "Item",
-        editable: true,
-        renderCell: (params) => {
-          if (params.id === -1) {
-            return (
-              <TextField
-                // value={place}
-                variant="standard"
-                placeholder="add item"
-              ></TextField>
-            );
-          }
-          return params.value;
-        },
-      },
-      {
-        field: "price",
-        headerName: "Price",
-        type: "number",
-        width: 70,
-        editable: true,
-        valueFormatter: (value) => {
-          if (value === null || value === undefined || isNaN(value)) {
-            return "";
-          }
-          return `$${Number(value).toFixed(2)}`;
-        },
-        renderCell: (params) => {
-          if (params.id === -1)
-            return (
-              <TextField
-                variant="standard"
-                placeholder="price"
-                type="number"
-              ></TextField>
-            );
-        },
-      },
-    ];
-
-    const dynamicColumns = initialColumns.map((user) => ({
-      field: user.username,
-      headerName: user.username,
-      renderCell: renderPersonCell,
-      width: 105,
-      renderHeader: (params) => <CustomHeader {...params} />,
-      cellClassName: (params) =>
-        clsx(styles.splitCell, {
-          [styles.selectedCell]: !!params.value,
-        }),
-    }));
-
-    const names = initialColumns.map((user) => user.username);
-
-    const placeholderColumn = {
-      field: "placeholder",
-      headerName: "",
-      sortable: false,
-      editable: false,
-      disableClickEventBubbling: true,
-      renderHeader: (params) => <EditableHeader {...params} columns={names} />,
-      renderCell: () => null,
-    };
-
-    setColumns([
-      actionsColumn,
-      ...staticColumns,
-      ...dynamicColumns,
-      placeholderColumn,
-    ]);
-  }, [initialColumns]);
-
-  // rows
-  // const [totalsRow, setTotalsRow] = useState({ item: "TOTAL", price: null });
-
-  useEffect(() => {
-    const dataRows = initialRows.map((row, index) => ({
-      ...row,
-      id: index + 1,
-    }));
-
-    const placeholderRow = {
-      id: -1,
-      item: "",
-      price: null,
-    };
-
-    const totals = calculateTotals(dataRows, columns);
-    const totalsRow = {
-      id: "totals",
-      item: "TOTAL",
-      price: null,
-      ...totals,
-    };
-    // console.log("USE EFF after calling calcTotals", totals);
-    // console.log("totalsRow right before seeting", totalsRow);
-    setRows([...dataRows, placeholderRow, totalsRow]);
-  }, [initialRows]);
-
-  const EditableHeader = ({ colDef, columns }) => {
+  const PlaceholderCol = ({ colDef }) => {
     const { field } = colDef;
     const [inputValue, setInputValue] = useState("");
 
@@ -296,7 +66,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
         type="text"
         value={field === "placeholder" ? inputValue : colDef.headerName}
         onChange={handleChange}
-        placeholder={field === "placeholder" ? "Add person.." : ""}
+        placeholder={field === "placeholder" ? "Add person..." : ""}
         onBlur={handleHeaderChange}
         onKeyDown={handleKeyDown}
         style={{ width: "100%", border: "none", outline: "none" }}
@@ -304,53 +74,233 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
     );
   };
 
-  const recalculateShares = (currentRows, currentColumns) => {
-    return currentRows.map((row) => {
-      if (row.id === -1 || row.id === "totals") {
-        return row;
-      }
+  const [rows, setRows] = useState([]);
+  const [columns, setColumns] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
 
-      const updatedRow = { ...row };
+  const createReceipt = async () => {
+    const validRows = itemRows.map(({ id, ...rest }) => rest);
+    const validColumns = userCols.map((field) => field.headerName);
 
-      // Count participants for this row
-      const participants = currentColumns.filter(
-        (col) =>
-          !["item", "price", "actions"].includes(col.field) && !!row[col.field],
-      ).length; // Only count fields that are true for this row
-
-      // Calculate new split amount
-      const splitAmount =
-        participants > 0 ? (row.price / participants).toFixed(2) : 0;
-
-      // Update amounts for all participating columns
-      currentColumns.forEach((col) => {
-        if (!["item", "price", "actions"].includes(col.field)) {
-          updatedRow[col.field] = !!row[col.field]
-            ? parseFloat(splitAmount)
-            : false; // Assign splitAmount only if participating, otherwise false
-        }
+    try {
+      console.log("sending to backend", validRows, validColumns);
+      const res = await apiClient.post("/createRec", {
+        rows: validRows,
+        columns: validColumns,
+        creator_id: user.id,
       });
 
-      return updatedRow;
-    });
+      setRID(res.data.id);
+    } catch (error) {
+      console.error("Error creating receipt:", error);
+    }
   };
 
+  const [userCols, setUserCols] = useState([]);
+  const staticCols = [
+    {
+      field: "actions",
+      type: "actions",
+      headerName: "",
+      width: 20,
+      sortable: false,
+      disableColumnMenu: true,
+      getActions: (params) => {
+        if (params.id === -1 || params.id === "totals") {
+          return [];
+        }
+
+        return [
+          <GridActionsCellItem
+            icon={<DeleteIcon />}
+            label="Delete"
+            onClick={() => removeRow(params.id)}
+            color="error"
+          />,
+        ];
+      },
+    },
+    {
+      field: "item",
+      pinned: "left",
+      width: firstColumnWidth,
+      headerName: "Item",
+      editable: true,
+      renderCell: (params) => {
+        if (params.id === -1) {
+          return (
+            <TextField variant="standard" placeholder="add item"></TextField>
+          );
+        }
+        return params.value;
+      },
+    },
+    {
+      field: "price",
+      headerName: "Price",
+      type: "number",
+      width: 70,
+      editable: true,
+      valueFormatter: (value) => {
+        if (value === null || value === undefined || isNaN(value)) {
+          return "";
+        }
+        return `$${Number(value).toFixed(2)}`;
+      },
+      renderCell: (params) => {
+        if (params.id === -1)
+          return (
+            <TextField
+              variant="standard"
+              placeholder="price"
+              type="number"
+            ></TextField>
+          );
+      },
+    },
+  ];
+  const placeholderColumn = {
+    field: "placeholder",
+    headerName: "",
+    sortable: false,
+    editable: false,
+    disableClickEventBubbling: true,
+    renderHeader: (params) => <PlaceholderCol {...params} />,
+    renderCell: () => null,
+  };
+
+  // columns
+  useEffect(() => {
+    const dynamicColumns = initialColumns.map((user) => ({
+      field: user.username,
+      headerName: user.username,
+      renderCell: renderPersonCell,
+      width: 105,
+      renderHeader: (params) => <CustomHeader {...params} />,
+      cellClassName: (params) =>
+        clsx(styles.splitCell, {
+          [styles.selectedCell]: !!params.value,
+        }),
+    }));
+
+    setUserCols(dynamicColumns);
+  }, []);
+
+  useEffect(() => {
+    setColumns([...staticCols, ...userCols, placeholderColumn]);
+  }, [userCols]);
+
+  // rows
+
+  const [itemRows, setItemRows] = useState([]);
+  const placeholderRow = { id: -1, item: "", price: null };
+  const [totalsRow, setTotalsRow] = useState({
+    item: "TOTAL",
+    price: null,
+    id: "totals",
+  });
+
+  useEffect(() => {
+    const dataRows = initialRows.map((row, index) => ({
+      ...row,
+      id: index + 1, //for front end
+    }));
+
+    setItemRows(dataRows);
+
+    const totalsRow = calculateTotals(dataRows, userCols);
+    setTotalsRow(totalsRow);
+    // setRows([...dataRows, placeholderRow, totalsRow]);
+  }, [initialRows]);
+
+  useEffect(() => {
+    // test();
+    setRows([...itemRows, placeholderRow, totalsRow]);
+  }, [itemRows, totalsRow]);
+
+  useEffect(() => {
+    setTotalsRow(calculateTotals(itemRows, userCols));
+  }, [itemRows, userCols]);
+
+  const isButtonDisabled = useMemo(() => {
+    if (!user) {
+      setErrorMessage("Please login to create receipt");
+      return true;
+    }
+
+    const len = itemRows.length;
+
+    if (len === 0) {
+      setErrorMessage("Add at least 1 item");
+      return true;
+    }
+
+    for (let i = 0; i < len; i++) {
+      const row = itemRows[i];
+      if (!row.item || row.item.trim() === "") {
+        setErrorMessage("Item name cannot be empty");
+        return true;
+      }
+      if (row.price === null || row.price < 0.01 || isNaN(row.price)) {
+        setErrorMessage(`${row.item} price is invalid`);
+        return true;
+      }
+    }
+
+    const dups = (array) => {
+      const seen = new Set();
+      for (const obj of array) {
+        if (seen.has(obj.field)) {
+          return obj.field;
+        }
+        seen.add(obj.field);
+      }
+      return null;
+    };
+
+    const duplicateField = dups(userCols);
+    if (duplicateField) {
+      setErrorMessage(`Name "${duplicateField}" is already used`);
+      return true;
+    }
+    if (userCols.length < 2) {
+      setErrorMessage("Add at least 2 users");
+      return true;
+    }
+
+    for (let i = 0; i < userCols.length; i++) {
+      const field = userCols[i].headerName;
+      if (
+        typeof field !== "string" ||
+        !field ||
+        field.trim() === "" ||
+        !/^[A-Za-z]+$/.test(field)
+      ) {
+        setErrorMessage(`Columns ${field} empty or invalid`);
+        return true;
+      }
+    }
+
+    setErrorMessage("");
+    return false;
+  }, [rows, columns]);
+
   const handleDeleteColumn = (fieldToDelete) => {
-    setColumns((prevColumns) => {
+    setUserCols((prevColumns) => {
       const newColumns = prevColumns.filter(
         (col) => col.field !== fieldToDelete,
       );
 
-      setRows((prevRows) => {
-        const rowsWithDeletedColumn = prevRows.map((row) => {
+      // Update rows with recalculated values
+      setItemRows((prevRows) => {
+        const newRows = prevRows.map((row) => {
           const newRow = { ...row };
           delete newRow[fieldToDelete];
           return newRow;
         });
 
-        return recalculateShares(rowsWithDeletedColumn, newColumns);
+        return recalculateShares(newRows, newColumns);
       });
-
       return newColumns;
     });
   };
@@ -409,7 +359,15 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
     }
 
     return (
-      <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 8px",
+          width: "100%",
+        }}
+      >
         {/* Editable Input for Header Name */}
 
         {field !== "item" && field !== "price" && (
@@ -419,10 +377,10 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
             onBlur={handleBlur}
             variant="outlined"
             size="small"
-            // style={{ flex: 1 }}
           />
         )}
 
+        {/* Delete Icon (if applicable) */}
         {field !== "item" && field !== "price" && (
           <IconButton
             size="small"
@@ -440,19 +398,20 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
 
   const addColumn = (newColumnName) => {
     const newField = newColumnName.replace(/\s/g, "");
+
     let names = [];
-    setColumns((prevColumns) => {
+    setUserCols((prevColumns) => {
       names = prevColumns.map((col) => col.field);
       return prevColumns;
     });
     if (names.includes(newField)) {
+      console.log(errorMessage);
       setErrorMessage(`Name "${newColumnName}" is already used`);
       return;
     }
 
-    setColumns((prevColumns) => [
-      ...prevColumns.slice(0, -1),
-      {
+    setUserCols((prevColumns) => {
+      const newCol = {
         field: newField,
         headerName: newColumnName,
         width: 105,
@@ -462,22 +421,11 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
           clsx(styles.splitCell, {
             [styles.selectedCell]: !!params.value,
           }),
-      },
-      {
-        field: "placeholder",
-        headerName: "",
-        sortable: false,
-        width: 100,
-        editable: false,
-        disableClickEventBubbling: true,
-        renderHeader: (params) => (
-          <EditableHeader {...params} columns={names} />
-        ),
-        renderCell: () => null,
-      },
-    ]);
+      };
+      return [...prevColumns, newCol];
+    });
 
-    setRows((prevRows) =>
+    setItemRows((prevRows) =>
       prevRows.map((row) => ({
         ...row,
         [newField]: false,
@@ -487,12 +435,16 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
   };
 
   const removeRow = (id) => {
-    setRows((prevRows) => prevRows.filter((row) => row.id !== id));
+    setItemRows((prevRows) => prevRows.filter((row) => row.id !== id));
     processRowUpdate({ id, item: "", price: null }, { id });
   };
 
   const handleCellClick = (params) => {
     const { id, field } = params;
+
+    // const clickedRow = itemRows.find((row) => row.id === id);
+    // console.log("clickedRow", clickedRow);
+
     if (
       id === -1 ||
       id === "totals" ||
@@ -501,118 +453,89 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
       return;
     }
 
-    setRows((prevRows) => {
-      let dataRows = prevRows.filter((row) => row.id !== "totals");
-
-      const updatedRows = dataRows.map((row) => {
+    setItemRows((prevRows) => {
+      return prevRows.map((row) => {
         if (row.id === id) {
-          const updatedRow = {
-            ...row,
-            [field]: !row[field],
-          };
+          const updatedRow = { ...row, [field]: !row[field] }; // Toggle cell value
 
-          const participants = columns.filter(
-            (col) =>
-              !["item", "price", "actions"].includes(col.field) &&
-              (col.field === field ? !row[field] : !!row[col.field]),
+          // Calculate participant count
+          const participants = userCols.filter((col) =>
+            col.field === field ? !row[field] : !!row[col.field],
           ).length;
 
+          // Calculate split amount
           const splitAmount =
             participants > 0 ? (row.price / participants).toFixed(2) : 0;
 
-          columns.forEach((col) => {
-            if (!["item", "price", "actions"].includes(col.field)) {
-              const isParticipating =
-                col.field === field ? !row[field] : !!row[col.field];
-              updatedRow[col.field] = isParticipating ? splitAmount : false;
-            }
+          userCols.forEach((col) => {
+            const isParticipating =
+              col.field === field ? !row[field] : !!row[col.field];
+            updatedRow[col.field] = isParticipating ? splitAmount : false;
           });
 
+          console.log("updatedRow", updatedRow);
           return updatedRow;
         }
         return row;
       });
-
-      const totals = {};
-      columns.forEach((col) => {
-        if (!["item", "actions"].includes(col.field)) {
-          totals[col.field] = updatedRows.reduce((sum, row) => {
-            return sum + (parseFloat(row[col.field]) || 0);
-          }, 0);
-        }
-      });
-
-      const totalsRow = {
-        id: "totals",
-        item: "TOTAL",
-        // price: null,
-        ...totals,
-      };
-
-      return [...updatedRows, totalsRow];
     });
+    //totals updated from useEffect
   };
 
   const addRow = (rowData) => {
-    setRows((prevRows) => {
-      const totalsRow = prevRows.find((row) => row.id === "totals") || {
-        id: "totals",
-        item: "TOTAL",
-        price: 0,
-      };
-      const filteredRows = prevRows.filter(
-        (row) => row.id !== -1 && row.id !== "totals",
-      );
-
+    setItemRows((prevRows) => {
       const newRow = {
         id: prevRows.length + 1,
         item: rowData.item || "",
         price: parseFloat(rowData.price?.toFixed(2)) || null,
       };
-
-      const updatedRows = [
-        ...filteredRows,
-        newRow,
-        { id: -1 },
-        {
-          ...totalsRow,
-          price: calculateTotal(filteredRows, newRow),
-        },
-      ];
-      return updatedRows;
+      return [...prevRows, newRow];
     });
-
-    // setPlace("");
-    // setColumns((prevColumns) => prevColumns);
   };
 
-  const calculateTotal = (rows, newRow) => {
-    let ans = [...rows, newRow]
-      .filter((row) => row && row.id !== -1 && row.id !== "totals")
-      .reduce((sum, row) => sum + (parseFloat(row.price) || 0), 0);
-    return ans;
+  const recalculateShares = (currentRows, currentColumns) => {
+    return currentRows.map((row) => {
+      const updatedRow = { ...row };
+
+      // Count participants for this row
+      const participants = currentColumns.filter(
+        (col) => !!row[col.field],
+      ).length;
+
+      // Calculate new split amount
+      const splitAmount =
+        participants > 0 ? (row.price / participants).toFixed(2) : 0;
+
+      // Update amounts for all participating columns
+      currentColumns.forEach((col) => {
+        updatedRow[col.field] = !!row[col.field]
+          ? parseFloat(splitAmount)
+          : false;
+      });
+
+      return updatedRow;
+    });
   };
 
-  const calculateTotals = (rows = [], columns = []) => {
+  const calculateTotals = (rows, columns) => {
     const initialTotals = columns.reduce(
       (totals, col) => {
-        if (!["item", "price"].includes(col.field)) {
-          totals[col.field] = 0;
-        }
+        totals[col.field] = 0;
         return totals;
       },
       { price: 0 },
-    );
+    ); // Initialize price total
 
+    //  reduce rows to calculate totals
     const totals = rows.reduce((acc, row) => {
-      if (row.id === -1 || row.id === "totals") return acc;
-
+      // Add price to the total
       if (row.price) {
         acc.price += parseFloat(row.price) || 0;
       }
 
+      // Add person totals
       columns.forEach((col) => {
-        if (!["item", "price"].includes(col.field) && row[col.field]) {
+        if (row[col.field]) {
           acc[col.field] += parseFloat(row[col.field]) || 0;
         }
       });
@@ -620,16 +543,8 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
       return acc;
     }, initialTotals);
 
-    return {
-      id: "totals",
-      item: "TOTAL",
-      ...totals,
-    };
+    return { ...totals, id: "totals", item: "TOTAL" };
   };
-
-  useEffect(() => {
-    // test();
-  }, [rows]);
 
   const processRowUpdate = (newRow, oldRow) => {
     return new Promise((resolve) => {
@@ -638,22 +553,22 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
         addRow(newRow);
         resolve({ id: -1, item: "", price: null });
       } else {
-        setRows((prevRows) => {
-          // console.log("came here");
+        setItemRows((prevRows) => {
           const roundedPrice = parseFloat(newRow.price?.toFixed(2));
           newRow.price = roundedPrice;
 
+          // Update the specific row
           const updatedRows = prevRows.map((row) =>
             row.id === newRow.id ? newRow : row,
           );
 
-          let newShare = recalculateShares(updatedRows, columns);
+          let newShare = recalculateShares(updatedRows, userCols);
 
           resRow = newShare.find((row) => row.id === newRow.id);
-
-          let totals = calculateTotals(newShare, columns);
-          return [...newShare.filter((row) => row.id !== "totals"), totals];
+          // console.log("newShare", newShare);
+          return newShare;
         });
+
         resolve(resRow);
       }
     });
@@ -751,9 +666,9 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
       >
         Create Receipt
       </Button>
-      {/* <Button variant="contained" color="secondary" onClick={test}> */}
-      {/*   view grid */}
-      {/* </Button> */}
+      <Button variant="contained" color="secondary" onClick={test}>
+        view grid
+      </Button>
     </div>
   );
 };

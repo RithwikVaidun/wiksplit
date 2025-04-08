@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress"; // Import spinner
-// import axios from "axios";
+import CircularProgress from "@mui/material/CircularProgress";
 import apiClient from "../context/axios";
-import styles from "../styles/Grid.module.css"; // Import the CSS file
+import styles from "../styles/Grid.module.css";
 
 export default function PhotoUploader({ setRs }) {
   const [imagePreview, setImagePreview] = useState(null);
@@ -29,7 +28,6 @@ export default function PhotoUploader({ setRs }) {
   //  loadImage();
   //}, []);
 
-  // Clean up object URL
   useEffect(() => {
     return () => {
       if (imagePreview && imagePreview.startsWith("blob:")) {
@@ -39,7 +37,6 @@ export default function PhotoUploader({ setRs }) {
   }, [imagePreview]);
 
   const handleButtonClick = () => {
-    // Programmatically trigger the hidden file input
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -55,11 +52,9 @@ export default function PhotoUploader({ setRs }) {
           let width = img.width;
           let height = img.height;
 
-          // Max dimensions
           const MAX_WIDTH = 1600;
           const MAX_HEIGHT = 1600;
 
-          // Calculate new dimensions while maintaining aspect ratio
           if (width > height) {
             if (width > MAX_WIDTH) {
               height = Math.round((height * MAX_WIDTH) / width);
@@ -76,7 +71,6 @@ export default function PhotoUploader({ setRs }) {
           canvas.height = height;
 
           const ctx = canvas.getContext("2d");
-          // Add white background to improve contrast
           ctx.fillStyle = "#FFFFFF";
           ctx.fillRect(0, 0, width, height);
           // Draw image with improved quality settings
@@ -95,7 +89,7 @@ export default function PhotoUploader({ setRs }) {
             },
             "image/jpeg",
             0.85,
-          ); // Slightly higher quality for receipt text
+          );
         };
         img.src = event.target.result;
       };
@@ -112,8 +106,6 @@ export default function PhotoUploader({ setRs }) {
         const compressedFile = await compressImage(file);
         setImageFile(compressedFile);
         setImagePreview(URL.createObjectURL(compressedFile));
-        // setImageFile(file);
-        // setImagePreview(URL.createObjectURL(file));
       } catch (error) {
         console.error("Error processing image:", error);
         setError("Failed to process image. Please try again.");
@@ -135,15 +127,6 @@ export default function PhotoUploader({ setRs }) {
     formData.append("file", imageFile);
 
     try {
-      // const response = await axios.post(
-      //   `${url}/extract-items-prices`,
-      //   formData,
-      //   {
-      //     headers: {
-      //       "Content-Type": "multipart/form-data",
-      //     },
-      //   }
-      // );
       const response = await apiClient.post("/extract-items-prices", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -174,7 +157,7 @@ export default function PhotoUploader({ setRs }) {
           // capture="camera"
           ref={fileInputRef}
           onChange={handleImageChange}
-          style={{ display: "none" }} // Hides the input visually
+          style={{ display: "none" }}
         />
 
         <Button variant="contained" color="primary" onClick={handleButtonClick}>
