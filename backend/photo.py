@@ -1,15 +1,15 @@
 import json
 import os
-import re
 import shutil
 import typing
 from uuid import uuid4
 
 import google.generativeai as genai
 import pytesseract
-from auth import verify_token
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from PIL import Image
+
+from auth import verify_token
 
 router = APIRouter()
 
@@ -18,21 +18,6 @@ genai.configure(api_key=GEMINI_API_KEY)
 
 UPLOAD_DIR = "./uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-def parse_receipt_text(raw_text):
-    # Regex pattern to match lines with items and prices
-    pattern = r"^([\w\s]+?)\s+([\d,.]+)$"
-    items = []
-
-    for line in raw_text.split("\n"):
-        match = re.match(pattern, line.strip())
-        if match:
-            item_name = match.group(1).strip()
-            price = match.group(2).strip().replace(",", ".")
-            items.append({"item": item_name, "price": float(price)})
-
-    return items
 
 
 class Recipe(typing.TypedDict):
@@ -51,37 +36,45 @@ def extract_items_and_prices(raw_text):
             response_mime_type="application/json", response_schema=list[Recipe]
         ),
     )
+    print("result:", result.text)
     return result.text
 
 
 @router.post("/extract-items-prices", dependencies=[Depends(verify_token)])
 async def extract_items_prices(file: UploadFile = File(...)):
+    print("extracting items and prices")
+    print(file)
     try:
+        # Validate filename
         filename = file.filename or f"{uuid4()}.jpg"
         temp_file_path = os.path.join(UPLOAD_DIR, filename)
 
+        # Save uploaded image temporarily
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
+        # Verify if the file exists
         if not os.path.exists(temp_file_path):
             raise HTTPException(status_code=500, detail="File not found after saving.")
 
+        # Verify image readability
         try:
             image = Image.open(temp_file_path)
-            image.verify()
+            image.verify()  # Verifies if the image is not corrupt
         except Exception as img_error:
             raise HTTPException(
                 status_code=500, detail=f"Invalid image file: {img_error}"
             )
 
-        image = Image.open(temp_file_path)
+        # Extract text using OCR
+        image = Image.open(temp_file_path)  # Reopen image after verify
         raw_text = pytesseract.image_to_string(image)
         os.remove(temp_file_path)
         print("raw_text:", raw_text)
-        items = {"price": 0, "item": "test"}
-
         items = extract_items_and_prices(raw_text)
         items = json.loads(items)
+        for item in items:
+            print(item)
 
         return {"success": True, "items": items}
 

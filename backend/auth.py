@@ -19,9 +19,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 ALGORITHM = "HS256"
 SECRET_KEY = os.getenv("SECRET_KEY", "")
 GOOGLE_CLIENT_ID = os.getenv("NEXT_PUBLIC_GOOGLE_CLIENT_ID", "")
-
-DB_FILE = "example.db"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # Token valid for 7 days
 
 
 def get_or_create_user(user_data):
@@ -34,22 +32,27 @@ def get_or_create_user(user_data):
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
+
+        # PostgreSQL uses %s as placeholders
         cursor.execute(
-            "SELECT id, email, name FROM users WHERE google_id = ?", (google_id,)
+            "SELECT id, email, name FROM users WHERE google_id = %s", (google_id,)
         )
         existing_user = cursor.fetchone()
 
         if not existing_user:
             # Create new user if not exists
             cursor.execute(
-                "INSERT INTO users (google_id, name, email) VALUES (?, ?, ?)",
+                """
+                INSERT INTO users (google_id, name, email)
+                VALUES (%s, %s, %s)
+                RETURNING id
+                """,
                 (google_id, name, email),
             )
-            user_id = cursor.lastrowid
+            user_id = cursor.fetchone()[0]
             user_email = email
             user_name = name
         else:
-            # Use existing user's data
             user_id, user_email, user_name = existing_user
 
         return {
@@ -98,6 +101,7 @@ async def google_auth(request: GoogleAuthRequest):
 @router.get("/auth/verify")
 async def verify_user(request: Request):
     auth_header = request.headers.get("Authorization")
+    print("auth_header", auth_header)
 
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Unauthorized: No token provided")
@@ -126,10 +130,12 @@ async def verify_admin(request: Request):
 
     if user_data["role"] != "admin":
         try:
+            # Get request body and handle bytes conversion
             request_body = await request.body()
             if isinstance(request_body, bytes):
                 request_body = request_body.decode("utf-8", errors="replace")
 
+            # Define headers to exclude
             excluded_headers = {
                 "sec-fetch-site",
                 "sec-fetch-mode",
@@ -165,7 +171,7 @@ async def verify_admin(request: Request):
                 log_file.write(json.dumps(log_data, indent=2) + "\n")
 
         except Exception as e:
-            print(f"Logging error: {e}")
+            print(f"Logging error: {e}")  # Just print any errors instead of failing
 
         raise HTTPException(status_code=403, detail="Forbidden: Admins only")
 
@@ -178,11 +184,12 @@ async def verify_token(request: Request):
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Unauthorized: No token provided")
 
+    # Extract token (remove "Bearer ")
     token = auth_header.split(" ")[1]
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
+        user_id = payload.get("sub")  # Extract user ID
         role = payload.get("role", "user")
 
         if not user_id:

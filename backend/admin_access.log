@@ -14,3 +14,83 @@
 }
   "path_attempted": "/receipts"
 }
+{
+  "user_id": "14",
+  "timestamp": "2025-03-22T21:09:54.982539",
+  "path_attempted": "/receipts/0"
+}
+{
+  "user_id": "14",
+  "timestamp": "2025-03-22T21:09:55.005116",
+  "path_attempted": "/receipts/0"
+}
+{
+  "user_id": "14",
+  "timestamp": "2025-03-22T21:09:55.017766",
+  "path_attempted": "/receipts/0"
+}
+{
+  "user_id": "14",
+  "timestamp": "2025-03-22T21:09:59.556492",
+  "path_attempted": "/receipts/0"
+}
+{
+  "user_id": "14",
+  "timestamp": "2025-03-22T21:09:59.622078",
+  "path_attempted": "/receipts/0"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:05:31.595689",
+  "path_attempted": "/receipts/1"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:05:36.509493",
+  "path_attempted": "/receipts/1"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:05:49.064411",
+  "path_attempted": "/receipts/1"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:05:49.088761",
+  "path_attempted": "/receipts/2"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:05:52.795323",
+  "path_attempted": "/receipts/3"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:05:52.795418",
+  "path_attempted": "/receipts/2"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:05:59.699099",
+  "path_attempted": "/receipts/3"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:05:59.707137",
+  "path_attempted": "/receipts/4"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:06:05.432351",
+  "path_attempted": "/receipts/4"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:06:08.444841",
+  "path_attempted": "/receipts/4"
+}
+{
+  "user_id": "5",
+  "timestamp": "2025-05-09T20:07:59.728571",
+  "path_attempted": "/receipts/4"
+}

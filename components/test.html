@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html>
   <body>
     <h1>Click to claim your prize!</h1>
@@ -8,3 +9,530 @@
     </form>
   </body>
 </html>
+
+
+
+
+//prettier-ignore
+import { InputLabel, Select, MenuItem, FormControl, IconButton, Button, TextField, Paper, Dialog, DialogTitle, DialogContent, DialogContentText, Copy,Snackbar, } from "@mui/material";
+import { useState, useEffect, useRef } from "react";
+import { DataGrid } from "@mui/x-data-grid";
+import { useRouter } from "next/router";
+import apiClient from "../context/axios";
+
+import DeleteIcon from "@mui/icons-material/Delete";
+import styles from "../styles/Home.module.css";
+import { X, Share2 } from "lucide-react";
+import clsx from "clsx";
+
+const EditGrid = ({ receiptId, getReceiptData }) => {
+  const renderPersonCell = (params) => {
+    const isOptedIn = !!params.value; // Check if value exists
+    return <div>{isOptedIn ? `$${Number(params.value).toFixed(2)}` : ""}</div>;
+  };
+
+  async function test() {
+    for (let i = 0; i < rows.length; i++) {
+      // console.log(rows[i].id, rows[i].item, rows[i].price);
+      console.log(rows[i]);
+    }
+
+    for (let i = 0; i < columns.length - 1; i++) {
+      // console.log(columns[i].field, columns[i].headerName);
+      // console.log(columns[i]); //whate
+    }
+  }
+
+  const [rows, setRows] = useState([]);
+  const [columns, setColumns] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareableLink, setShareableLink] = useState("");
+  const [open, setOpen] = useState(false);
+  const [firstColumnWidth, setFirstColumnWidth] = useState(100);
+  const websocketRef = useRef(null);
+  const router = useRouter();
+  const isSharedPage = router.pathname.includes("/receipt/shared/");
+  const url = process.env.NEXT_PUBLIC_API_BASE;
+
+  // const wsURL = url.replace("http", "ws");
+  // const ws = new WebSocket(`${wsURL}/ws/${receiptId}`);
+  // console.log("WebSocket connected");
+  // websocketRef.current = ws;
+
+  useEffect(() => {
+    const wsURL = url.replace("http", "ws");
+    const ws = new WebSocket(`${wsURL}/ws/${receiptId}`);
+    console.log("WebSocket connected");
+    websocketRef.current = ws;
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "cell_update") {
+        updateReceipt(data.item_id, data.user_id, true);
+        // processRowUpdate(data.row, data.row);
+      }
+    };
+
+    return () => {
+      if (websocketRef.current) {
+        websocketRef.current.close();
+        console.log("WebSocket disconnected");
+      }
+    };
+  }, [receiptId, columns]);
+
+  const handleCellClick = (params) => {
+    const { id, field } = params;
+
+    if (id === "totals" || ["item", "price"].includes(field)) {
+      return;
+    }
+
+    // let newRows = updateReceipt(id, field, true);
+    let newRows = updateReceipt(id, field, false);
+    console.log(
+      "newRows",
+      newRows.find((row) => row.id === id),
+    );
+
+    if (websocketRef.current?.readyState === WebSocket.OPEN) {
+      const updateMessage = {
+        type: "cell_update",
+        item_id: id,
+        user_id: field,
+        row: newRows.find((row) => row.id === id),
+      };
+      websocketRef.current.send(JSON.stringify(updateMessage));
+    } else {
+      console.error("WebSocket is not open");
+    }
+  };
+
+  const staticColumns = [
+    {
+      field: "item",
+      headerName: "Item",
+      width: firstColumnWidth,
+      editable: false,
+    },
+    {
+      field: "price",
+      headerName: "Price",
+      type: "number",
+      // renderCell: renderPersonCell,
+      // editable: false,
+      valueFormatter: (value) => {
+        if (value === null || value === undefined || isNaN(value)) {
+          return ""; // Return blank if the value is invalid
+        }
+        return `$${Number(value).toFixed(2)}`; // Format the value if valid
+      },
+      width: 70,
+    },
+  ];
+
+  const [itemRows, setItemRows] = useState([]);
+  const [totalsRow, setTotalsRow] = useState({ item: "TOTAL", price: null, id: "totals" });
+  const [userCols, setUserCols] = useState([]);
+
+  useEffect(() => {
+    async function fetchData() {
+      const { rows: fetchedRows, columns: fetchedColumns } = await getReceiptData(receiptId);
+
+      // console.log(" fetched rows", fetchedRows);
+      // console.log(" fetched columns", fetchedColumns);
+      setItemRows(fetchedRows);
+
+      const dynamicColumns = fetchedColumns.map(({ id, username }) => ({
+        field: String(id), // Ensure it's a string for DataGrid compatibility
+        headerName: username,
+        width: 105,
+        renderCell: renderPersonCell,
+        cellClassName: (params) =>
+          clsx(styles.splitCell, {
+            [styles.selectedCell]: !!params.value,
+          }),
+      }));
+      setUserCols(dynamicColumns);
+      setColumns([...staticColumns, ...dynamicColumns]);
+    }
+
+    fetchData(); // Call the inner async function
+  }, [receiptId, getReceiptData]);
+
+  useEffect(() => {
+    setRows([...itemRows, totalsRow]);
+    console.log("new item rows", itemRows[0]);
+  }, [itemRows, totalsRow]);
+
+  // useEffect(() => {
+  //   setTotalsRow(calculateTotals(itemRows, userCols));
+  // }, [itemRows]);
+
+  const processRowUpdate = (newRow, oldRow) => {
+    return new Promise((resolve) => {
+      let resRow = newRow;
+      setItemRows((prevRows) => {
+        const roundedPrice = parseFloat(newRow.price?.toFixed(2));
+        newRow.price = roundedPrice;
+
+        // Update the specific row
+        const updatedRows = prevRows.map((row) => (row.id === newRow.id ? newRow : row));
+
+        let newShare = recalculateShares(updatedRows, userCols);
+
+        resRow = newShare.find((row) => row.id === newRow.id);
+        // console.log("newShare", newShare);
+        return newShare;
+      });
+
+      resolve(resRow);
+    });
+  };
+
+  const recalculateShares = (currentRows, currentColumns) => {
+    return currentRows.map((row) => {
+      const updatedRow = { ...row };
+
+      // Count participants for this row
+      const participants = currentColumns.filter((col) => !!row[col.field]).length; // Only count fields that are true for this row
+
+      // Calculate new split amount
+      const splitAmount = participants > 0 ? (row.price / participants).toFixed(2) : 0;
+
+      // Update amounts for all participating columns
+      currentColumns.forEach((col) => {
+        updatedRow[col.field] = !!row[col.field] ? parseFloat(splitAmount) : false; // Assign splitAmount only if participating, otherwise false
+      });
+
+      return updatedRow;
+    });
+  };
+
+  // const getNew = (id, field) => {
+  //   // 🔄 Compute the new state first
+  //   const ans = (() => {
+  //     // Exclude the totals row from processing
+  //     let dataRows = rows.filter((row) => row.id !== "totals");
+  //
+  //     // Update the target row
+  //     const updatedRows = dataRows.map((row) => {
+  //       if (row.id === id) {
+  //         const updatedRow = {
+  //           ...row,
+  //           [field]: !row[field], // Toggle cell value
+  //         };
+  //
+  //         // 🧠 Calculate participant count
+  //         const participants = columns.filter(
+  //           (col) =>
+  //             !["item", "price", "actions"].includes(col.field) &&
+  //             (col.field === field ? !row[field] : !!row[col.field]),
+  //         ).length;
+  //
+  //         // 💡 Calculate split amount
+  //         const splitAmount = participants > 0 ? (row.price / participants).toFixed(2) : 0;
+  //
+  //         // Update all participant fields with the new split amount
+  //         columns.forEach((col) => {
+  //           if (!["item", "price", "actions"].includes(col.field)) {
+  //             const isParticipating = col.field === field ? !row[field] : !!row[col.field];
+  //             updatedRow[col.field] = isParticipating ? splitAmount : false;
+  //           }
+  //         });
+  //
+  //         return updatedRow;
+  //       }
+  //       return row;
+  //     });
+  //
+  //     // 📊 Recalculate Totals Row
+  //     const totals = {};
+  //     columns.forEach((col) => {
+  //       if (!["item", "actions"].includes(col.field)) {
+  //         totals[col.field] = updatedRows.reduce((sum, row) => {
+  //           return sum + (parseFloat(row[col.field]) || 0);
+  //         }, 0);
+  //       }
+  //     });
+  //
+  //     const totalsRow = {
+  //       id: "totals",
+  //       item: "TOTAL",
+  //       ...totals,
+  //     };
+  //
+  //     return [...updatedRows, totalsRow]; // ✅ Return the computed state
+  //   })();
+  //
+  //   return ans;
+  // };
+
+  const updateReceipt = (id, field, set) => {
+    const ans = (() => {
+      const updatedRows = itemRows.map((row) => {
+        if (row.id === id) {
+          const updatedRow = {
+            ...row,
+            [field]: !row[field],
+          };
+
+          const participants = userCols.filter((col) =>
+            col.field === field ? !row[field] : !!row[col.field],
+          ).length;
+
+          const splitAmount = participants > 0 ? (row.price / participants).toFixed(2) : 0;
+
+          userCols.forEach((col) => {
+            const isParticipating = col.field === field ? !row[field] : !!row[col.field];
+            updatedRow[col.field] = isParticipating ? splitAmount : false;
+          });
+
+          return updatedRow;
+        }
+        return row;
+      });
+      return updatedRows;
+    })();
+
+    if (set) {
+      console.log(
+        "setting item rows as",
+        ans.find((row) => row.id === id),
+      );
+      setItemRows(ans);
+      return;
+    }
+    return ans;
+  };
+
+  const handleClose = (event, reason) => {
+    if (reason === "clickaway") {
+      return;
+    }
+
+    setOpen(false);
+  };
+
+  const deleteReceipt = async () => {
+    try {
+      // const response = await axios.post(`${url}/deleteRec`, {
+      const response = await apiClient.post("/deleteRec", {
+        recID: receiptId,
+      });
+    } catch (error) {
+      console.error("Error deleting receipt:", error);
+    }
+
+    location.reload();
+  };
+
+  const generateShareableLink = async () => {
+    try {
+      const response = await apiClient.post("/generate-share-link", {
+        receipt_id: receiptId, // Ensure receiptId is an integer
+      });
+
+      if (response.status !== 200) {
+        throw new Error("Failed to generate link");
+      }
+
+      const { encrypted_url } = response.data;
+
+      // Create the shareable URL with the encrypted data from backend
+      const shareableUrl = `${window.location.origin}/receipt/shared/${encodeURIComponent(encrypted_url)}`;
+
+      // Update state
+      setShareableLink(shareableUrl);
+      setShareDialogOpen(true);
+    } catch (error) {
+      console.error("Error generating share link:", error);
+      // Optionally show an error message to user
+      // setError('Failed to generate sharing link');
+    }
+  };
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareableLink);
+      setShareDialogOpen(false);
+      setOpen(true);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
+  const calculateTotals = (rows, columns) => {
+    const initialTotals = columns.reduce(
+      (totals, col) => {
+        totals[col.field] = 0; // Initialize person totals
+        return totals;
+      },
+      { price: 0 },
+    ); // Initialize price total
+
+    // Safely reduce rows to calculate totals
+    const totals = rows.reduce((acc, row) => {
+      // Add price to the total
+      if (row.price) {
+        acc.price += parseFloat(row.price) || 0;
+      }
+
+      // Add person totals
+      columns.forEach((col) => {
+        if (row[col.field]) {
+          acc[col.field] += parseFloat(row[col.field]) || 0;
+        }
+      });
+
+      return acc;
+    }, initialTotals);
+
+    // console.log("calcTotals returns", totals);
+    return { ...totals, id: "totals", item: "TOTAL" };
+  };
+
+  const handleColumnResize = (col) => {
+    if (col.colDef.field === "item") {
+      setFirstColumnWidth(col.width);
+    }
+  };
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "block",
+          width: "fit-content",
+          height: "fit-content",
+        }}
+      >
+        <DataGrid
+          rows={rows}
+          columns={columns}
+          onCellClick={(params) => handleCellClick(params)}
+          processRowUpdate={processRowUpdate}
+          rowHeight={40}
+          disableColumnSorting
+          disableColumnMenu
+          autoHeight
+          disableRowSelectionOnClick
+          showCellVerticalBorder
+          hideFooter
+          onProcessRowUpdateError={(error) => console.log("Error:", error)}
+          onColumnWidthChange={handleColumnResize}
+          disableVirtualization
+          getRowClassName={(params) => {
+            if (params.id === "totals") {
+              return "totalsRow";
+            }
+            return "";
+          }}
+          sx={{
+            "& .MuiDataGrid-columnHeader[data-field='item']": {
+              position: "sticky",
+              left: 0,
+              backgroundColor: "#fff",
+              zIndex: 3,
+            },
+            "& .MuiDataGrid-cell[data-field='item']": {
+              position: "sticky",
+              left: 0,
+              backgroundColor: "#fff",
+              zIndex: 2,
+            },
+
+            "& .MuiDataGrid-columnHeader[data-field='price']": {
+              position: "sticky",
+              left: firstColumnWidth,
+              backgroundColor: "#fff",
+              zIndex: 2,
+            },
+            "& .MuiDataGrid-cell[data-field='price']": {
+              position: "sticky",
+              left: firstColumnWidth,
+              backgroundColor: "#fff",
+              zIndex: 2,
+            },
+
+            "& .totalsRow": {
+              // backgroundColor: "#919090",
+              fontWeight: "bold",
+            },
+
+            "& .MuiDataGrid-row:hover": {
+              backgroundColor: "inherit",
+            },
+            "& .MuiDataGrid-row.Mui-hovered": {
+              backgroundColor: "inherit",
+            },
+
+            "& .MuiDataGrid-main": {
+              overflow: "auto",
+            },
+            "& .MuiDataGrid-virtualScroller": {
+              overflow: "auto !important",
+            },
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: "#fff",
+            },
+          }}
+        />
+      </div>
+      <Dialog open={shareDialogOpen} onClose={() => setShareDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Share Receipt
+          <IconButton
+            onClick={() => setShareDialogOpen(false)}
+            style={{ position: "absolute", right: 8, top: 8 }}
+          >
+            <X />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Share this link with others to let them view and edit receipt:
+          </DialogContentText>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <TextField
+              fullWidth
+              value={shareableLink}
+              InputProps={{
+                readOnly: true,
+              }}
+            />
+            <Button variant="contained" onClick={copyToClipboard}>
+              Copy
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Snackbar open={open} autoHideDuration={2000} onClose={handleClose} message="Copied to clipboard" />
+      {!isSharedPage && (
+        <>
+          <Button variant="outlined" startIcon={<Share2 />} onClick={generateShareableLink}>
+            Share
+          </Button>
+
+          <Button
+            variant="outlined"
+            color="red"
+            startIcon={<DeleteIcon />}
+            onClick={deleteReceipt}
+            style={{ marginLeft: 8, color: "red" }}
+          >
+            Delete
+          </Button>
+        </>
+      )}
+
+      {/* <Button variant="contained" color="secondary" onClick={test}> */}
+      {/*   view grid */}
+      {/* </Button> */}
+      {/* </Paper> */}
+    </div>
+  );
+};
+
+export default EditGrid;

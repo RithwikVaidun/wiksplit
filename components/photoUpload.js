@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
+import CircularProgress from "@mui/material/CircularProgress"; // Import spinner
 import apiClient from "../context/axios";
-import styles from "../styles/Grid.module.css";
+import styles from "../styles/Grid.module.css"; // Import the CSS file
 
 export default function PhotoUploader({ setRs }) {
   const [imagePreview, setImagePreview] = useState(null);
@@ -11,7 +11,6 @@ export default function PhotoUploader({ setRs }) {
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Preload an existing image on component mount
   //useEffect(() => {
   //  const loadImage = async () => {
   //    try {
@@ -37,6 +36,7 @@ export default function PhotoUploader({ setRs }) {
   }, [imagePreview]);
 
   const handleButtonClick = () => {
+    // Programmatically trigger the hidden file input
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -89,7 +89,7 @@ export default function PhotoUploader({ setRs }) {
             },
             "image/jpeg",
             0.85,
-          );
+          ); // Slightly higher quality for receipt text
         };
         img.src = event.target.result;
       };
@@ -139,9 +139,7 @@ export default function PhotoUploader({ setRs }) {
       setRs(items);
     } catch (error) {
       console.error("Failed to extract items and prices:", error);
-      setError(
-        "Failed to process receipt. Please ensure the image is clear and well-lit.",
-      );
+      setError("Failed to process receipt. Please ensure the image is clear and well-lit.");
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +155,7 @@ export default function PhotoUploader({ setRs }) {
           // capture="camera"
           ref={fileInputRef}
           onChange={handleImageChange}
-          style={{ display: "none" }}
+          style={{ display: "none" }} // Hides the input visually
         />
 
         <Button variant="contained" color="primary" onClick={handleButtonClick}>
@@ -168,23 +166,14 @@ export default function PhotoUploader({ setRs }) {
       {imagePreview && (
         <div>
           <h3>Preview:</h3>
-          <img
-            src={imagePreview}
-            alt="Preview"
-            style={{ maxWidth: "300px", marginTop: "10px" }}
-          />
+          <img src={imagePreview} alt="Preview" style={{ maxWidth: "300px", marginTop: "10px" }} />
         </div>
       )}
 
       {isLoading ? (
         <CircularProgress style={{ marginTop: "20px" }} />
       ) : (
-        <Button
-          onClick={handleUpload}
-          variant="outlined"
-          disabled={!imageFile}
-          style={{ marginTop: "20px" }}
-        >
+        <Button onClick={handleUpload} variant="outlined" disabled={!imageFile} style={{ marginTop: "20px" }}>
           Create Receipt From Image
         </Button>
       )}

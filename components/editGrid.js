@@ -13,10 +13,13 @@ import clsx from "clsx";
 
 const clientId = Math.random().toString(36).substring(2);
 
-const EditGrid = ({ receiptId, getReceiptData }) => {
+const EditGrid = ({ receiptId, data }) => {
+  console.log("receiptId", receiptId);
+  console.log("data", data);
+
   const { user } = useAuth();
   const renderPersonCell = (params) => {
-    const isOptedIn = !!params.value;
+    const isOptedIn = !!params.value; // Check if value exists
     return <div>{isOptedIn ? `$${Number(params.value).toFixed(2)}` : ""}</div>;
   };
 
@@ -41,11 +44,7 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
   const url = process.env.NEXT_PUBLIC_API_BASE;
 
   const [itemRows, setItemRows] = useState([]);
-  const [totalsRow, setTotalsRow] = useState({
-    item: "TOTAL",
-    price: null,
-    id: "totals",
-  });
+  const [totalsRow, setTotalsRow] = useState({ item: "TOTAL", price: null, id: "totals" });
   const [userCols, setUserCols] = useState([]);
 
   useEffect(() => {
@@ -56,7 +55,9 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log("sent by me?", data.sender_id === clientId);
       if (data.type === "cell_update" && data.sender_id !== clientId) {
+        console.log("sender_id", data.sender_id, "my id", clientId);
         getNew(data.item_id, data.user_id);
       }
     };
@@ -86,6 +87,7 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
         row: newRows.find((row) => row.id === id),
         sender_id: clientId,
       };
+      console.log("updateMessage", updateMessage);
 
       websocketRef.current.send(JSON.stringify(updateMessage));
     } else {
@@ -104,27 +106,29 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
       field: "price",
       headerName: "Price",
       type: "number",
+      // renderCell: renderPersonCell,
+      // editable: false,
       valueFormatter: (value) => {
         if (value === null || value === undefined || isNaN(value)) {
-          return "";
+          return ""; // Return blank if the value is invalid
         }
-        return `$${Number(value).toFixed(2)}`;
+        return `$${Number(value).toFixed(2)}`; // Format the value if valid
       },
       width: 70,
     },
   ];
 
   useEffect(() => {
+    if (!data) return;
     async function fetchData() {
-      const { rows: fetchedRows, columns: fetchedColumns } =
-        await getReceiptData(receiptId);
+      // const { rows: fetchedRows, columns: fetchedColumns } = await getReceiptData(receiptId);
 
-      // console.log(" fetched rows", fetchedRows);
-      // console.log(" fetched columns", fetchedColumns);
-      setItemRows(fetchedRows);
+      const { rows, columns } = data;
 
-      const dynamicColumns = fetchedColumns.map(({ id, username }) => ({
-        field: String(id), //for data grid
+      setItemRows(rows);
+
+      const dynamicColumns = columns.map(({ id, username }) => ({
+        field: String(id), // Ensure it's a string for DataGrid compatibility
         headerName: username,
         width: 105,
         renderCell: renderPersonCell,
@@ -137,8 +141,8 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
       setColumns([...staticColumns, ...dynamicColumns]);
     }
 
-    fetchData();
-  }, [receiptId, getReceiptData]);
+    fetchData(); // Call the inner async function
+  }, [receiptId, data]);
 
   useEffect(() => {
     setRows([...itemRows, totalsRow]);
@@ -155,9 +159,8 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
         const roundedPrice = parseFloat(newRow.price?.toFixed(2));
         newRow.price = roundedPrice;
 
-        const updatedRows = prevRows.map((row) =>
-          row.id === newRow.id ? newRow : row,
-        );
+        // Update the specific row
+        const updatedRows = prevRows.map((row) => (row.id === newRow.id ? newRow : row));
 
         let newShare = recalculateShares(updatedRows, userCols);
 
@@ -175,70 +178,19 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
       const updatedRow = { ...row };
 
       // Count participants for this row
-      const participants = currentColumns.filter(
-        (col) => !!row[col.field],
-      ).length; // Only count fields that are true for this row
+      const participants = currentColumns.filter((col) => !!row[col.field]).length; // Only count fields that are true for this row
 
       // Calculate new split amount
-      const splitAmount =
-        participants > 0 ? (row.price / participants).toFixed(2) : 0;
+      const splitAmount = participants > 0 ? (row.price / participants).toFixed(2) : 0;
 
       // Update amounts for all participating columns
       currentColumns.forEach((col) => {
-        updatedRow[col.field] = !!row[col.field]
-          ? parseFloat(splitAmount)
-          : false;
+        updatedRow[col.field] = !!row[col.field] ? parseFloat(splitAmount) : false; // Assign splitAmount only if participating, otherwise false
       });
 
       return updatedRow;
     });
   };
-
-  // const getNewa = (id, field, set) => {
-  //   const ans = (() => {
-  //     const curr = itemRowsRef.current;
-  //
-  //     console.log("set is", set, "item rows is", curr[0]);
-  //     const updatedRows = curr.map((row) => {
-  //       if (row.id === id) {
-  //         const updatedRow = {
-  //           ...row,
-  //           [field]: !row[field], // Toggle cell value
-  //         };
-  //
-  //         // 🧠 Calculate participant count
-  //         const participants = columns.filter(
-  //           (col) =>
-  //             !["item", "price", "actions"].includes(col.field) &&
-  //             (col.field === field ? !row[field] : !!row[col.field]),
-  //         ).length;
-  //
-  //         // 💡 Calculate split amount
-  //         const splitAmount = participants > 0 ? (row.price / participants).toFixed(2) : 0;
-  //
-  //         // Update all participant fields with the new split amount
-  //         columns.forEach((col) => {
-  //           if (!["item", "price", "actions"].includes(col.field)) {
-  //             const isParticipating = col.field === field ? !row[field] : !!row[col.field];
-  //             updatedRow[col.field] = isParticipating ? splitAmount : false;
-  //           }
-  //         });
-  //
-  //         return updatedRow;
-  //       }
-  //       return row;
-  //     });
-  //
-  //     return updatedRows;
-  //   })();
-  //
-  //   if (set) {
-  //     setItemRows(ans);
-  //   }
-  //
-  //   return ans;
-  // };
-  // GET NEW FUNCTION DOES NOT GET RECREATED, so old value of itemRows is used
 
   const getNew = (id, field) => {
     let ret = [];
@@ -250,22 +202,20 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
             [field]: !row[field], // Toggle cell value
           };
 
-          // Calculate participant count
+          // 🧠 Calculate participant count
           const participants = columns.filter(
             (col) =>
               !["item", "price", "actions"].includes(col.field) &&
               (col.field === field ? !row[field] : !!row[col.field]),
           ).length;
 
-          // Calculate split amount
-          const splitAmount =
-            participants > 0 ? (row.price / participants).toFixed(2) : 0;
+          // 💡 Calculate split amount
+          const splitAmount = participants > 0 ? (row.price / participants).toFixed(2) : 0;
 
           // Update all participant fields with the new split amount
           columns.forEach((col) => {
             if (!["item", "price", "actions"].includes(col.field)) {
-              const isParticipating =
-                col.field === field ? !row[field] : !!row[col.field];
+              const isParticipating = col.field === field ? !row[field] : !!row[col.field];
               updatedRow[col.field] = isParticipating ? splitAmount : false;
             }
           });
@@ -304,7 +254,7 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
   const generateShareableLink = async () => {
     try {
       const response = await apiClient.post("/generate-share-link", {
-        receipt_id: receiptId,
+        receipt_id: receiptId, // Ensure receiptId is an integer
       });
 
       if (response.status !== 200) {
@@ -313,12 +263,16 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
 
       const { encrypted_url } = response.data;
 
+      // Create the shareable URL with the encrypted data from backend
       const shareableUrl = `${window.location.origin}/receipt/shared/${encodeURIComponent(encrypted_url)}`;
 
+      // Update state
       setShareableLink(shareableUrl);
       setShareDialogOpen(true);
     } catch (error) {
       console.error("Error generating share link:", error);
+      // Optionally show an error message to user
+      // setError('Failed to generate sharing link');
     }
   };
 
@@ -335,13 +289,13 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
   const calculateTotals = (rows, columns) => {
     const initialTotals = columns.reduce(
       (totals, col) => {
-        totals[col.field] = 0;
+        totals[col.field] = 0; // Initialize person totals
         return totals;
       },
       { price: 0 },
-    );
+    ); // Initialize price total
 
-    // reduce rows to calculate totals
+    // Safely reduce rows to calculate totals
     const totals = rows.reduce((acc, row) => {
       // Add price to the total
       if (row.price) {
@@ -449,12 +403,7 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
           }}
         />
       </div>
-      <Dialog
-        open={shareDialogOpen}
-        onClose={() => setShareDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
+      <Dialog open={shareDialogOpen} onClose={() => setShareDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           Share Receipt
           <IconButton
@@ -482,19 +431,10 @@ const EditGrid = ({ receiptId, getReceiptData }) => {
           </div>
         </DialogContent>
       </Dialog>
-      <Snackbar
-        open={open}
-        autoHideDuration={2000}
-        onClose={handleClose}
-        message="Copied to clipboard"
-      />
+      <Snackbar open={open} autoHideDuration={2000} onClose={handleClose} message="Copied to clipboard" />
       {!isSharedPage && (
         <>
-          <Button
-            variant="outlined"
-            startIcon={<Share2 />}
-            onClick={generateShareableLink}
-          >
+          <Button variant="outlined" startIcon={<Share2 />} onClick={generateShareableLink}>
             Share
           </Button>
 

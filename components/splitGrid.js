@@ -1,9 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from "react";
-import {
-  GridActionsCellItem,
-  DataGrid,
-  GridColumnMenu,
-} from "@mui/x-data-grid";
+import { GridActionsCellItem, DataGrid, GridColumnMenu } from "@mui/x-data-grid";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { IconButton, Button, TextField, Paper } from "@mui/material";
 import { X, Shar2 } from "lucide-react";
@@ -49,15 +45,16 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
 
     const handleHeaderChange = (e) => {
       if (field === "placeholder" && inputValue) {
-        addColumn(inputValue);
+        addColumn(inputValue); // Add the new column
         setInputValue("");
+        // setErrorMessage("");
       }
     };
 
     const handleKeyDown = (e) => {
       if (e.key === "Enter") {
-        e.preventDefault();
-        handleHeaderChange();
+        e.preventDefault(); // Prevent form submission or default behavior
+        handleHeaderChange(); // Call without event
       }
     };
 
@@ -128,9 +125,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
       editable: true,
       renderCell: (params) => {
         if (params.id === -1) {
-          return (
-            <TextField variant="standard" placeholder="add item"></TextField>
-          );
+          return <TextField variant="standard" placeholder="add item"></TextField>;
         }
         return params.value;
       },
@@ -143,19 +138,13 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
       editable: true,
       valueFormatter: (value) => {
         if (value === null || value === undefined || isNaN(value)) {
-          return "";
+          return ""; // Return blank if the value is invalid
         }
-        return `$${Number(value).toFixed(2)}`;
+        return `$${Number(value).toFixed(2)}`; // Format the value if valid
       },
       renderCell: (params) => {
         if (params.id === -1)
-          return (
-            <TextField
-              variant="standard"
-              placeholder="price"
-              type="number"
-            ></TextField>
-          );
+          return <TextField variant="standard" placeholder="price" type="number"></TextField>;
       },
     },
   ];
@@ -172,8 +161,8 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
   // columns
   useEffect(() => {
     const dynamicColumns = initialColumns.map((user) => ({
-      field: user.username,
-      headerName: user.username,
+      field: user.username, // Access the username property
+      headerName: user.username, // Use the username as the header
       renderCell: renderPersonCell,
       width: 105,
       renderHeader: (params) => <CustomHeader {...params} />,
@@ -187,18 +176,14 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
   }, []);
 
   useEffect(() => {
-    setColumns([...staticCols, ...userCols, placeholderColumn]);
+    setColumns([...staticCols, ...userCols, placeholderColumn]); // Combine static and dynamic columns
   }, [userCols]);
 
   // rows
 
   const [itemRows, setItemRows] = useState([]);
   const placeholderRow = { id: -1, item: "", price: null };
-  const [totalsRow, setTotalsRow] = useState({
-    item: "TOTAL",
-    price: null,
-    id: "totals",
-  });
+  const [totalsRow, setTotalsRow] = useState({ item: "TOTAL", price: null, id: "totals" });
 
   useEffect(() => {
     const dataRows = initialRows.map((row, index) => ({
@@ -270,12 +255,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
 
     for (let i = 0; i < userCols.length; i++) {
       const field = userCols[i].headerName;
-      if (
-        typeof field !== "string" ||
-        !field ||
-        field.trim() === "" ||
-        !/^[A-Za-z]+$/.test(field)
-      ) {
+      if (typeof field !== "string" || !field || field.trim() === "" || !/^[A-Za-z]+$/.test(field)) {
         setErrorMessage(`Columns ${field} empty or invalid`);
         return true;
       }
@@ -287,9 +267,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
 
   const handleDeleteColumn = (fieldToDelete) => {
     setUserCols((prevColumns) => {
-      const newColumns = prevColumns.filter(
-        (col) => col.field !== fieldToDelete,
-      );
+      const newColumns = prevColumns.filter((col) => col.field !== fieldToDelete);
 
       // Update rows with recalculated values
       setItemRows((prevRows) => {
@@ -299,6 +277,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
           return newRow;
         });
 
+        // Recalculate shares for remaining columns
         return recalculateShares(newRows, newColumns);
       });
       return newColumns;
@@ -377,6 +356,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
             onBlur={handleBlur}
             variant="outlined"
             size="small"
+            // style={{ flex: 1 }}
           />
         )}
 
@@ -397,7 +377,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
   };
 
   const addColumn = (newColumnName) => {
-    const newField = newColumnName.replace(/\s/g, "");
+    const newField = newColumnName.replace(/\s/g, ""); // Remove spaces from the name
 
     let names = [];
     setUserCols((prevColumns) => {
@@ -445,11 +425,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
     // const clickedRow = itemRows.find((row) => row.id === id);
     // console.log("clickedRow", clickedRow);
 
-    if (
-      id === -1 ||
-      id === "totals" ||
-      ["item", "price", "placeholder", "actions"].includes(field)
-    ) {
+    if (id === -1 || id === "totals" || ["item", "price", "placeholder", "actions"].includes(field)) {
       return;
     }
 
@@ -464,12 +440,10 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
           ).length;
 
           // Calculate split amount
-          const splitAmount =
-            participants > 0 ? (row.price / participants).toFixed(2) : 0;
+          const splitAmount = participants > 0 ? (row.price / participants).toFixed(2) : 0;
 
           userCols.forEach((col) => {
-            const isParticipating =
-              col.field === field ? !row[field] : !!row[col.field];
+            const isParticipating = col.field === field ? !row[field] : !!row[col.field];
             updatedRow[col.field] = isParticipating ? splitAmount : false;
           });
 
@@ -498,19 +472,14 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
       const updatedRow = { ...row };
 
       // Count participants for this row
-      const participants = currentColumns.filter(
-        (col) => !!row[col.field],
-      ).length;
+      const participants = currentColumns.filter((col) => !!row[col.field]).length; // Only count fields that are true for this row
 
       // Calculate new split amount
-      const splitAmount =
-        participants > 0 ? (row.price / participants).toFixed(2) : 0;
+      const splitAmount = participants > 0 ? (row.price / participants).toFixed(2) : 0;
 
       // Update amounts for all participating columns
       currentColumns.forEach((col) => {
-        updatedRow[col.field] = !!row[col.field]
-          ? parseFloat(splitAmount)
-          : false;
+        updatedRow[col.field] = !!row[col.field] ? parseFloat(splitAmount) : false; // Assign splitAmount only if participating, otherwise false
       });
 
       return updatedRow;
@@ -520,13 +489,13 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
   const calculateTotals = (rows, columns) => {
     const initialTotals = columns.reduce(
       (totals, col) => {
-        totals[col.field] = 0;
+        totals[col.field] = 0; // Initialize person totals
         return totals;
       },
       { price: 0 },
     ); // Initialize price total
 
-    //  reduce rows to calculate totals
+    // Safely reduce rows to calculate totals
     const totals = rows.reduce((acc, row) => {
       // Add price to the total
       if (row.price) {
@@ -558,9 +527,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
           newRow.price = roundedPrice;
 
           // Update the specific row
-          const updatedRows = prevRows.map((row) =>
-            row.id === newRow.id ? newRow : row,
-          );
+          const updatedRows = prevRows.map((row) => (row.id === newRow.id ? newRow : row));
 
           let newShare = recalculateShares(updatedRows, userCols);
 
@@ -599,8 +566,7 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
           onProcessRowUpdateError={(error) => console.log("Error:", error)}
           disableVirtualization
           isCellEditable={(params) =>
-            params.row.id !== "totals" ||
-            (params.row.id == -1 && params.field == "price")
+            params.row.id !== "totals" || (params.row.id == -1 && params.field == "price")
           }
           onColumnWidthChange={handleColumnResize}
           getRowClassName={(params) => {
@@ -658,17 +624,12 @@ const SplitGrid = ({ initialRows, initialColumns, setRID }) => {
       </Paper>
 
       <div style={{ color: "red" }}>{errorMessage}</div>
-      <Button
-        variant="contained"
-        color="secondary"
-        onClick={createReceipt}
-        disabled={isButtonDisabled}
-      >
+      <Button variant="contained" color="secondary" onClick={createReceipt} disabled={isButtonDisabled}>
         Create Receipt
       </Button>
-      <Button variant="contained" color="secondary" onClick={test}>
-        view grid
-      </Button>
+      {/* <Button variant="contained" color="secondary" onClick={test}> */}
+      {/*   view grid */}
+      {/* </Button> */}
     </div>
   );
 };
