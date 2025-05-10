@@ -22,6 +22,8 @@ https://github.com/user-attachments/assets/b7ec1845-c4e8-4229-adff-92dd465de2f4
 - explored how cookies are sent across domains and how they could be exploited through CSRF and XSS attacks.
 - fundamentals of Docker for packaging and deploying backend to cloud services.
 - designed effecient SQL database schema with automatic updates and deletions using triggers.
+-     implementented PostgreSQL additionally for scalability and permanence.
 - experimented with various preprocessing techniques to improve text extraction accuracy.
+- scheduled backround tasks on event loop and used worker threads to keep UI responsive when doing synchronous blocking writes to the database.
 - implemented logging file to track and record malicious requests to the API.
 - configuring and deploying different environments for development and production.
